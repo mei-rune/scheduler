@@ -63,8 +63,7 @@ func (self *ShellJob) Run() {
 	case e := <-c:
 		if nil != e {
 			io.WriteString(out, "run failed, "+e.Error()+"\r\n")
-		}
-		if nil != cmd.ProcessState {
+		} else if nil != cmd.ProcessState {
 			io.WriteString(out, "run ok, exit with "+cmd.ProcessState.String()+".\r\n")
 		}
 	case <-time.After(self.timeout):
