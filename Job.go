@@ -31,7 +31,7 @@ func (self *ShellJob) Run() {
 
 	cmd := exec.Command(self.execute, self.arguments...)
 	cmd.Stderr = out
-	cmd.Stdin = out
+	cmd.Stdout = out
 	if nil != self.environments && 0 != len(self.environments) {
 		os_env := os.Environ()
 		environments := make([]string, 0, len(self.arguments)+len(os_env))
