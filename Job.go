@@ -20,7 +20,7 @@ type ShellJob struct {
 }
 
 func (self *ShellJob) Run() {
-	out, e := os.OpenFile(self.logfile, os.O_APPEND|os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0)
+	out, e := os.OpenFile(self.logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0)
 	if nil != e {
 		log.Println("open log file("+self.logfile+") failed,", e)
 		return
@@ -39,6 +39,16 @@ func (self *ShellJob) Run() {
 		environments = append(environments, self.environments...)
 		cmd.Env = environments
 	}
+
+	io.WriteString(out, cmd.Path)
+	for idx, s := range cmd.Args {
+		if 0 == idx {
+			continue
+		}
+		io.WriteString(out, "\r\n \t\t")
+		io.WriteString(out, s)
+	}
+	io.WriteString(out, "\r\n===============  out  ===============\r\n")
 
 	if e = cmd.Start(); nil != e {
 		io.WriteString(out, "start failed, "+e.Error()+"\r\n")
