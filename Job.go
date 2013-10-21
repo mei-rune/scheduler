@@ -22,12 +22,12 @@ type ShellJob struct {
 func (self *ShellJob) Run() {
 	out, e := os.OpenFile(self.logfile, os.O_APPEND|os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0)
 	if nil != e {
-		log.Println("["+self.name+"] open log file("+self.logfile+") failed,", e)
+		log.Println("open log file("+self.logfile+") failed,", e)
 		return
 	}
 	defer out.Close()
-	io.WriteString(out, "["+self.name+"] =============== begin ===============\r\n")
-	defer io.WriteString(out, "["+self.name+"] ===============  end  ===============\r\n")
+	io.WriteString(out, "=============== begin ===============\r\n")
+	defer io.WriteString(out, "===============  end  ===============\r\n")
 
 	cmd := exec.Command(self.execute, self.arguments...)
 	cmd.Stderr = out
@@ -41,7 +41,7 @@ func (self *ShellJob) Run() {
 	}
 
 	if e = cmd.Start(); nil != e {
-		io.WriteString(out, "["+self.name+"] start failed, "+e.Error()+"\r\n")
+		io.WriteString(out, "start failed, "+e.Error()+"\r\n")
 		return
 	}
 	c := make(chan error, 10)
@@ -52,10 +52,13 @@ func (self *ShellJob) Run() {
 	select {
 	case e := <-c:
 		if nil != e {
-			io.WriteString(out, "["+self.name+"] run failed, "+e.Error()+"\r\n")
+			io.WriteString(out, "run failed, "+e.Error()+"\r\n")
+		}
+		if nil != cmd.ProcessState {
+			io.WriteString(out, "run ok, exit with "+cmd.ProcessState.String()+".\r\n")
 		}
 	case <-time.After(self.timeout):
 		killByPid(cmd.Process.Pid)
-		io.WriteString(out, "["+self.name+"] run timeout, kill it.\r\n")
+		io.WriteString(out, "run timeout, kill it.\r\n")
 	}
 }
