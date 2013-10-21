@@ -11,6 +11,7 @@ import (
 	"github.com/runner-mei/cron"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -142,9 +143,10 @@ func main() {
 
 		bs, e := json.MarshalIndent(ret, "", "  ")
 		if nil != e {
-			return json.RawMessage(e.Error())
+			return e.Error()
 		}
-		return json.RawMessage(bs)
+		rm := json.RawMessage(bs)
+		return &rm
 	}))
 
 	cr.Start()

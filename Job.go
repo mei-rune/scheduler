@@ -26,8 +26,8 @@ func (self *ShellJob) Run() {
 		return
 	}
 	defer out.Close()
-	io.WriteString(out, "["+self.name+"] =============== begin ===============")
-	defer io.WriteString(out, "["+self.name+"] ===============  end  ===============")
+	io.WriteString(out, "["+self.name+"] =============== begin ===============\r\n")
+	defer io.WriteString(out, "["+self.name+"] ===============  end  ===============\r\n")
 
 	cmd := exec.Command(self.execute, self.arguments...)
 	cmd.Stderr = out
@@ -41,7 +41,7 @@ func (self *ShellJob) Run() {
 	}
 
 	if e = cmd.Start(); nil != e {
-		io.WriteString(out, "["+self.name+"] start failed, "+e.Error())
+		io.WriteString(out, "["+self.name+"] start failed, "+e.Error()+"\r\n")
 		return
 	}
 	c := make(chan error, 10)
@@ -52,10 +52,10 @@ func (self *ShellJob) Run() {
 	select {
 	case e := <-c:
 		if nil != e {
-			io.WriteString(out, "["+self.name+"] run failed, "+e.Error())
+			io.WriteString(out, "["+self.name+"] run failed, "+e.Error()+"\r\n")
 		}
 	case <-time.After(self.timeout):
 		killByPid(cmd.Process.Pid)
-		io.WriteString(out, "["+self.name+"] run timeout, kill it")
+		io.WriteString(out, "["+self.name+"] run timeout, kill it.\r\n")
 	}
 }
