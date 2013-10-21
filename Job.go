@@ -20,9 +20,9 @@ type ShellJob struct {
 }
 
 func (self *ShellJob) Run() {
-	out, e := os.OpenFile(self.logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0)
+	out, e := os.OpenFile(self.logfile, os.O_APPEND|os.O_CREATE, 0)
 	if nil != e {
-		log.Println("open log file("+self.logfile+") failed,", e)
+		log.Println("["+self.name+"] open log file("+self.logfile+") failed,", e)
 		return
 	}
 	defer out.Close()
@@ -61,6 +61,7 @@ func (self *ShellJob) Run() {
 
 	select {
 	case e := <-c:
+		out.Seek(0, os.SEEK_END)
 		if nil != e {
 			io.WriteString(out, "run failed, "+e.Error()+"\r\n")
 		} else if nil != cmd.ProcessState {
@@ -68,6 +69,8 @@ func (self *ShellJob) Run() {
 		}
 	case <-time.After(self.timeout):
 		killByPid(cmd.Process.Pid)
+		out.Seek(0, os.SEEK_END)
 		io.WriteString(out, "run timeout, kill it.\r\n")
+		log.Println("[" + self.name + "] run timeout, kill it.")
 	}
 }
