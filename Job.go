@@ -1,13 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
-	"time"
 	"sync/atomic"
+	"time"
 )
+
+const maxNum = 5
+const maxBytes = 5 * 1024 * 1024
 
 type ShellJob struct {
 	name         string
@@ -22,58 +26,63 @@ type ShellJob struct {
 }
 
 func (self *ShellJob) Run() {
-	if !atomic.CompareAndSwap(&self.status, 0, 1) {
-		log.Println("["+self.name+"] running!")
-		return 
+	if !atomic.CompareAndSwapInt32(&self.status, 0, 1) {
+		log.Println("[" + self.name + "] running!")
+		return
 	}
 
 	go func() {
-       defer atomic.StoreInt32(&self.status, 0)
-       e := self.rotate_file()
-       if nil != e {
-		log.Println("["+self.name+"] rotate log file failed,", e)
-       }
-       self.do_run()
+		defer atomic.StoreInt32(&self.status, 0)
+		e := self.rotate_file()
+		if nil != e {
+			log.Println("["+self.name+"] rotate log file failed,", e)
+		}
+		self.do_run()
 	}()
 }
 
 func (self *ShellJob) rotate_file() error {
-	 _, err := os.Stat(self.filename)
-    if nil != err { // file exists
-    	if os.IsNotExist(err) {
-    		return nil
-    	}
-        return err
-    }
+	_, err := os.Stat(self.logfile)
+	if nil != err { // file exists
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
 
-    fname2 := self.filename + fmt.Sprintf(".%04d", self.maxNum)
-    _, err = os.Stat(fname2)
-    if nil == err {
-        err = os.Remove(fname2)
-        if err != nil {
-             return err
-        }
-    }
+	if st.Size() < maxBytes {
+		return nil
+	}
 
-    fname1 := fname2
-    for num := self.maxNum - 1; num > 0; num-- {
-        fname2 = fname1
-        fname1 = self.filename + fmt.Sprintf(".%04d", num)
+	fname2 := self.logfile + fmt.Sprintf(".%04d", maxNum)
+	_, err = os.Stat(fname2)
+	if nil == err {
+		err = os.Remove(fname2)
+		if err != nil {
+			return err
+		}
+	}
 
-        _, err = os.Stat(fname1)
-        if nil != err {
-            continue
-        }
-        err = os.Rename(fname1, fname2)
-        if err != nil {
-            return err
-        }
-    }
+	fname1 := fname2
+	for num := maxNum - 1; num > 0; num-- {
+		fname2 = fname1
+		fname1 = self.logfile + fmt.Sprintf(".%04d", num)
 
-    err = os.Rename(self.filename, fname1)
-    if err != nil {
-        return err
-    }
+		_, err = os.Stat(fname1)
+		if nil != err {
+			continue
+		}
+		err = os.Rename(fname1, fname2)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = os.Rename(self.logfile, fname1)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *ShellJob) do_run() {
