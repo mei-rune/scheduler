@@ -42,7 +42,7 @@ func (self *ShellJob) Run() {
 }
 
 func (self *ShellJob) rotate_file() error {
-	_, err := os.Stat(self.logfile)
+	st, err := os.Stat(self.logfile)
 	if nil != err { // file exists
 		if os.IsNotExist(err) {
 			return nil
