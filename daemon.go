@@ -118,7 +118,7 @@ func main() {
 		log.Println(e)
 		return
 	}
-	jobs_from_db, e := loadJobsFromDB(backend, *root_dir, arguments)
+	jobs_from_db, e := loadJobsFromDB(backend, arguments)
 	if nil != e {
 		log.Println(e)
 		return
@@ -228,7 +228,7 @@ func main() {
 			case err := <-watcher.Error:
 				log.Println("error:", err)
 			case <-time.After(*poll_interval):
-				if e := reloadJobsFromDB(cr, error_jobs, backend, *root_dir, arguments); nil != e {
+				if e := reloadJobsFromDB(cr, error_jobs, backend, arguments); nil != e {
 					log.Println(e)
 				}
 			}
@@ -250,7 +250,7 @@ func main() {
 	}
 }
 
-func reloadJobsFromDB(cr *cron.Cron, error_jobs map[string]error, backend *dbBackend, root string, arguments map[string]interface{}) error {
+func reloadJobsFromDB(cr *cron.Cron, error_jobs map[string]error, backend *dbBackend, arguments map[string]interface{}) error {
 	jobs, e := backend.snapshot(nil)
 	if nil != e {
 		return errors.New("load snapshot from db failed, " + e.Error())
@@ -264,8 +264,7 @@ func reloadJobsFromDB(cr *cron.Cron, error_jobs map[string]error, backend *dbBac
 		if job, ok := ent.Job.(*JobFromDB); ok {
 			if v, ok := versions[job.id]; ok {
 				if !v.updated_at.Equal(job.updated_at) {
-					reloadJobFromDB(cr, error_jobs, backend, root, arguments, job.id, job.name)
-
+					reloadJobFromDB(cr, error_jobs, backend, arguments, job.id, job.name)
 				}
 				delete(versions, job.id)
 			} else {
@@ -275,23 +274,36 @@ func reloadJobsFromDB(cr *cron.Cron, error_jobs map[string]error, backend *dbBac
 			}
 		}
 	}
+
+	for id, _ := range versions {
+		reloadJobFromDB(cr, error_jobs, backend, arguments, id, "")
+	}
 	return nil
 }
 
-func reloadJobFromDB(cr *cron.Cron, error_jobs map[string]error, backend *dbBackend, root string, arguments map[string]interface{}, id int64, name string) {
+func reloadJobFromDB(cr *cron.Cron, error_jobs map[string]error, backend *dbBackend, arguments map[string]interface{}, id int64, name string) {
+	message_prefix := "[sys] reload job -"
+	if "" == name {
+		message_prefix = "[sys] load new job -"
+	}
+
 	job, e := backend.find(id)
 	if nil != e {
-		log.Println("[sys] reload job -", name)
+		if "" == name {
+			log.Println(message_prefix, "[", id, "]")
+		} else {
+			log.Println(message_prefix, name)
+		}
 		return
 	}
-	e = afterLoad(job, root, arguments)
+	e = afterLoad(job, arguments)
 	if nil != e {
-		log.Println("[sys] reload job -", name)
+		log.Println(message_prefix, job.name)
 		return
 	}
 
 	id_str := fmt.Sprint(id)
-	log.Println("[sys] reload job -", job.name)
+	log.Println(message_prefix, job.name)
 	cr.Unschedule(id_str)
 	delete(error_jobs, id_str)
 
@@ -344,13 +356,13 @@ func search_java_home(root string) string {
 	return java_execute
 }
 
-func loadJobsFromDB(backend *dbBackend, root string, arguments map[string]interface{}) ([]*JobFromDB, error) {
+func loadJobsFromDB(backend *dbBackend, arguments map[string]interface{}) ([]*JobFromDB, error) {
 	jobs, e := backend.where(nil)
 	if nil != e {
 		return nil, e
 	}
 	for _, job := range jobs {
-		e = afterLoad(job, root, arguments)
+		e = afterLoad(job, arguments)
 		if nil != e {
 			return nil, e
 		}
@@ -358,14 +370,19 @@ func loadJobsFromDB(backend *dbBackend, root string, arguments map[string]interf
 	return jobs, nil
 }
 
-func afterLoad(job *JobFromDB, root string, arguments map[string]interface{}) error {
+func afterLoad(job *JobFromDB, arguments map[string]interface{}) error {
 	is_java := false
 	if "java" == strings.ToLower(job.execute) || "java.exe" == strings.ToLower(job.execute) {
-		job.execute = search_java_home(root)
+		job.execute = *java_home
 		is_java = true
 	} else {
 		job.execute = executeTemplate(job.execute, arguments)
+		execute_tolow := strings.ToLower(job.execute)
+		if strings.HasSuffix(execute_tolow, "java") || strings.HasSuffix(execute_tolow, "java.exe") {
+			is_java = true
+		}
 	}
+
 	job.directory = executeTemplate(job.directory, arguments)
 	if nil != job.arguments {
 		for idx, s := range job.arguments {

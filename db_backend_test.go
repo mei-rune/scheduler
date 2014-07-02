@@ -88,7 +88,7 @@ abc`, `e1={{.a2}}`, time.Now(), time.Now())
 			return
 		}
 
-		jobs, e := loadJobsFromDB(backend, "c:/test/", map[string]interface{}{"root_dir": "c:/test", "a1": "b1", "a2": "b2"})
+		jobs, e := loadJobsFromDB(backend, map[string]interface{}{"root_dir": "c:/test", "a1": "b1", "a2": "b2"})
 		if nil != e {
 			t.Error(e)
 			return
