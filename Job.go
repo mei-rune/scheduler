@@ -13,7 +13,11 @@ import (
 const maxNum = 5
 const maxBytes = 5 * 1024 * 1024
 
+type Job interface {
+	Run()
+}
 type ShellJob struct {
+	id           int64
 	name         string
 	execute      string
 	directory    string
@@ -23,6 +27,12 @@ type ShellJob struct {
 	timeout      time.Duration
 	expression   string
 	status       int32
+}
+
+type JobFromDB struct {
+	ShellJob
+	updated_at time.Time
+	created_at time.Time
 }
 
 func (self *ShellJob) Run() {
@@ -98,13 +108,23 @@ func (self *ShellJob) do_run() {
 	cmd := exec.Command(self.execute, self.arguments...)
 	cmd.Stderr = out
 	cmd.Stdout = out
+
+	var environments []string
 	if nil != self.environments && 0 != len(self.environments) {
 		os_env := os.Environ()
-		environments := make([]string, 0, len(self.arguments)+len(os_env))
+		environments = make([]string, 0, len(self.arguments)+len(os_env)+3)
 		environments = append(environments, os_env...)
 		environments = append(environments, self.environments...)
-		cmd.Env = environments
+	} else {
+		os_env := os.Environ()
+		environments = make([]string, 0, len(os_env)+3)
+		environments = append(environments, os_env...)
+		environments = append(environments, self.environments...)
 	}
+
+	environments = append(environments, "shced_job_id="+fmt.Sprint(self.id))
+	environments = append(environments, "shced_job_name="+self.name)
+	cmd.Env = environments
 
 	io.WriteString(out, cmd.Path)
 	for idx, s := range cmd.Args {
