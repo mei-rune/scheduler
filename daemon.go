@@ -367,7 +367,7 @@ func afterLoad(job *JobFromDB, root string, arguments map[string]interface{}) er
 		job.execute = executeTemplate(job.execute, arguments)
 	}
 	job.directory = executeTemplate(job.directory, arguments)
-	if nil == job.arguments {
+	if nil != job.arguments {
 		for idx, s := range job.arguments {
 			job.arguments[idx] = executeTemplate(s, arguments)
 		}
@@ -399,7 +399,7 @@ func afterLoad(job *JobFromDB, root string, arguments map[string]interface{}) er
 
 		job.logfile = filepath.Join(*log_path, "job_"+job.name+".log")
 	}
-	if nil == job.environments {
+	if nil != job.environments {
 		for idx, s := range job.environments {
 			job.environments[idx] = executeTemplate(s, arguments)
 		}
